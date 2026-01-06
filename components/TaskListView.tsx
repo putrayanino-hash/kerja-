@@ -1,0 +1,156 @@
+import React from 'react';
+import { Task, User, TaskStatus, KanbanColumn } from '../types';
+import { Search, Calendar, ChevronDown, CheckCircle2 } from 'lucide-react';
+import { useLanguage } from './LanguageContext';
+
+interface TaskListViewProps {
+  tasks: Task[];
+  users: User[];
+  columns: KanbanColumn[];
+  onStatusChange: (taskId: string, newStatus: TaskStatus) => void;
+  onTaskClick?: (task: Task) => void;
+  onDeleteTask?: (taskId: string) => void;
+}
+
+const THEME_STYLES: Record<string, { bg: string; text: string; border: string; ring: string }> = {
+  slate: { bg: 'bg-slate-100', text: 'text-slate-600', border: 'border-slate-200', ring: 'focus:ring-slate-500' },
+  red: { bg: 'bg-red-50', text: 'text-red-600', border: 'border-red-200', ring: 'focus:ring-red-500' },
+  orange: { bg: 'bg-orange-50', text: 'text-orange-600', border: 'border-orange-200', ring: 'focus:ring-orange-500' },
+  amber: { bg: 'bg-amber-50', text: 'text-amber-600', border: 'border-amber-200', ring: 'focus:ring-amber-500' },
+  yellow: { bg: 'bg-yellow-50', text: 'text-yellow-600', border: 'border-yellow-200', ring: 'focus:ring-yellow-500' },
+  lime: { bg: 'bg-lime-50', text: 'text-lime-600', border: 'border-lime-200', ring: 'focus:ring-lime-500' },
+  green: { bg: 'bg-green-50', text: 'text-green-600', border: 'border-green-200', ring: 'focus:ring-green-500' },
+  emerald: { bg: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-emerald-200', ring: 'focus:ring-emerald-500' },
+  teal: { bg: 'bg-teal-50', text: 'text-teal-600', border: 'border-teal-200', ring: 'focus:ring-teal-500' },
+  cyan: { bg: 'bg-cyan-50', text: 'text-cyan-600', border: 'border-cyan-200', ring: 'focus:ring-cyan-500' },
+  sky: { bg: 'bg-sky-50', text: 'text-sky-600', border: 'border-sky-200', ring: 'focus:ring-sky-500' },
+  blue: { bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-200', ring: 'focus:ring-blue-500' },
+  indigo: { bg: 'bg-indigo-50', text: 'text-indigo-600', border: 'border-indigo-200', ring: 'focus:ring-indigo-500' },
+  violet: { bg: 'bg-violet-50', text: 'text-violet-600', border: 'border-violet-200', ring: 'focus:ring-violet-500' },
+  purple: { bg: 'bg-purple-50', text: 'text-purple-600', border: 'border-purple-200', ring: 'focus:ring-purple-500' },
+  fuchsia: { bg: 'bg-fuchsia-50', text: 'text-fuchsia-600', border: 'border-fuchsia-200', ring: 'focus:ring-fuchsia-500' },
+  pink: { bg: 'bg-pink-50', text: 'text-pink-600', border: 'border-pink-200', ring: 'focus:ring-pink-500' },
+  rose: { bg: 'bg-rose-50', text: 'text-rose-600', border: 'border-rose-200', ring: 'focus:ring-rose-500' },
+};
+
+export const TaskListView: React.FC<TaskListViewProps> = ({ tasks, users, columns, onStatusChange, onTaskClick, onDeleteTask }) => {
+  const { t } = useLanguage();
+  const [filter, setFilter] = React.useState('');
+  
+  const filteredTasks = tasks.filter(t => t.title.toLowerCase().includes(filter.toLowerCase()));
+
+  const getUser = (id: string) => users.find(u => u.id === id);
+
+  const getStatusConfig = (statusId: string) => {
+    const col = columns.find(c => c.id === statusId);
+    if (!col) return { title: statusId, ...THEME_STYLES.slate };
+    const styles = THEME_STYLES[col.theme] || THEME_STYLES.slate;
+    
+    // Translate default titles if needed
+    let displayTitle = col.title;
+    if (col.id === 'todo') displayTitle = t.kanban.todo;
+    if (col.id === 'in-progress') displayTitle = t.kanban.inProgress;
+    if (col.id === 'done') displayTitle = t.kanban.done;
+
+    return { title: displayTitle, ...styles };
+  };
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        {/* Toolbar */}
+        <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row gap-4 justify-between items-center bg-white">
+            <h3 className="font-bold text-lg text-slate-800">All Tasks</h3>
+            <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                <input 
+                    type="text" 
+                    placeholder={t.common.search}
+                    className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    value={filter}
+                    onChange={(e) => setFilter(e.target.value)}
+                />
+            </div>
+        </div>
+
+        {/* List Header */}
+        <div className="hidden md:grid grid-cols-12 gap-4 p-4 bg-slate-50 text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100">
+            <div className="col-span-6">Task Details</div>
+            <div className="col-span-3 text-center">Status</div>
+            <div className="col-span-3 text-right">Assignee</div>
+        </div>
+
+        {/* List Body */}
+        <div className="divide-y divide-slate-100">
+            {filteredTasks.length === 0 ? (
+                <div className="p-8 text-center text-slate-400">No tasks found.</div>
+            ) : (
+                filteredTasks.map(task => {
+                    const assignee = getUser(task.assigneeId);
+                    const statusConfig = getStatusConfig(task.status);
+                    
+                    return (
+                        <div 
+                            key={task.id} 
+                            onClick={() => onTaskClick && onTaskClick(task)}
+                            className="flex flex-col md:grid md:grid-cols-12 gap-4 p-4 hover:bg-slate-50 transition-colors md:items-center group cursor-pointer relative"
+                        >
+                            <div className="md:col-span-6 flex items-start gap-3">
+                                <div className={`mt-1 md:mt-0 ${task.status === 'done' ? 'text-emerald-500' : 'text-slate-300'}`}>
+                                    <CheckCircle2 size={20} />
+                                </div>
+                                <div>
+                                    <p className={`font-medium text-slate-800 ${task.status === 'done' ? 'line-through text-slate-400' : ''}`}>{task.title}</p>
+                                    <div className="flex items-center gap-2 mt-1 text-slate-400 text-xs">
+                                        <Calendar size={12} />
+                                        {new Date(task.dueDate).toLocaleDateString()}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            {/* Status Dropdown - Works on Mobile & Desktop */}
+                            <div className="md:col-span-3 flex justify-start md:justify-center pl-8 md:pl-0">
+                                <div className="relative group" onClick={(e) => e.stopPropagation()}>
+                                    <select
+                                        value={task.status}
+                                        onChange={(e) => onStatusChange(task.id, e.target.value)}
+                                        className={`appearance-none pl-3 pr-8 py-1.5 rounded-full text-[10px] sm:text-xs font-bold border cursor-pointer transition-all outline-none focus:ring-2 focus:ring-offset-1 uppercase
+                                            ${statusConfig.bg} ${statusConfig.text} ${statusConfig.border} ${statusConfig.ring}
+                                        `}
+                                    >
+                                        {columns.map(col => {
+                                            // Translate options
+                                            let title = col.title;
+                                            if (col.id === 'todo') title = t.kanban.todo;
+                                            if (col.id === 'in-progress') title = t.kanban.inProgress;
+                                            if (col.id === 'done') title = t.kanban.done;
+                                            
+                                            return (
+                                                <option key={col.id} value={col.id}>
+                                                    {title.toUpperCase()}
+                                                </option>
+                                            );
+                                        })}
+                                    </select>
+                                    <ChevronDown className={`absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 pointer-events-none ${statusConfig.text} opacity-50`} />
+                                </div>
+                            </div>
+
+                            <div className="md:col-span-3 flex justify-end pl-8 md:pl-0">
+                                {assignee ? (
+                                    <div className="flex items-center gap-2 text-right">
+                                        <div className="block">
+                                            <p className="text-sm font-medium text-slate-700">{assignee.name}</p>
+                                            <p className="text-xs text-slate-400 hidden sm:block">{assignee.role}</p>
+                                        </div>
+                                        <img src={assignee.avatar} alt={assignee.name} className="w-8 h-8 rounded-full border border-slate-200" />
+                                    </div>
+                                ) : <span className="text-slate-400 text-sm">Unassigned</span>}
+                            </div>
+                        </div>
+                    );
+                })
+            )}
+        </div>
+    </div>
+  );
+};
